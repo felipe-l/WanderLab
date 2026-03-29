@@ -461,7 +461,8 @@ async def run_live_reddit():
     assert len(ids) == len(set(ids)), "Duplicate source_ids in live Reddit data"
 
     print(f"  ✓ Live Reddit: scraped {len(posts)} posts, {len(comments)} comments from r/jira")
-    print(f"    Sample post: {items[0]['title'][:60]}...")
+    sample = next((i for i in items if i.get("title")), items[0])
+    print(f"    Sample post: {(sample.get('title') or sample.get('body', ''))[:60]}...")
     return True
 
 
