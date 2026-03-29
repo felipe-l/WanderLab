@@ -22,68 +22,68 @@ HEADERS = {
 }
 
 
-async def scrape_subreddit(subreddit: str, limit: int = 100) -> list[dict]:
-    """Scrape recent posts from a subreddit using the public JSON API."""
+async def _scrape_subreddit_posts(subreddit: str, client: httpx.AsyncClient, limit: int = 100) -> list[dict]:
+    """Scrape recent posts from a subreddit. Uses the provided client (with its cookies)."""
     url = f"{REDDIT_BASE}/r/{subreddit}/new.json"
     params = {"limit": min(limit, 100), "t": "week"}
 
     results = []
     after = None
 
-    async with httpx.AsyncClient(timeout=30, headers=HEADERS) as client:
-        for page in range(2):
-            if after:
-                params["after"] = after
+    for page in range(2):
+        if after:
+            params["after"] = after
 
-            try:
-                resp = await client.get(url, params=params)
-                resp.raise_for_status()
-                data = resp.json()
-            except (httpx.HTTPError, ValueError) as e:
-                logger.error(f"Failed to scrape r/{subreddit} (page {page}): {e}")
-                break
+        try:
+            resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+        except (httpx.HTTPError, ValueError) as e:
+            logger.error(f"Failed to scrape r/{subreddit} (page {page}): {e}")
+            break
 
-            posts = data.get("data", {}).get("children", [])
-            if not posts:
-                break
+        posts = data.get("data", {}).get("children", [])
+        if not posts:
+            break
 
-            for post in posts:
-                p = post.get("data", {})
-                if not p.get("selftext"):
-                    continue
+        for post in posts:
+            p = post.get("data", {})
+            if not p.get("selftext"):
+                continue
 
-                results.append({
-                    "source": "reddit",
-                    "source_id": f"reddit_{p.get('id', '')}",
-                    "source_url": f"{REDDIT_BASE}{p.get('permalink', '')}",
-                    "subreddit": subreddit,
-                    "title": p.get("title", ""),
-                    "body": f"{p.get('title', '')}\n\n{p.get('selftext', '')}",
-                    "author": p.get("author"),
-                    "score": p.get("score", 0),
-                    "posted_at": datetime.fromtimestamp(
-                        p.get("created_utc", 0), tz=timezone.utc
-                    ).isoformat() if p.get("created_utc") else None,
-                    "_post_id": p.get("id", ""),  # used for comment fetching, stripped before insert
-                    "_post_score": p.get("score", 0),
-                })
+            results.append({
+                "source": "reddit",
+                "source_id": f"reddit_{p.get('id', '')}",
+                "source_url": f"{REDDIT_BASE}{p.get('permalink', '')}",
+                "subreddit": subreddit,
+                "title": p.get("title", ""),
+                "body": f"{p.get('title', '')}\n\n{p.get('selftext', '')}",
+                "author": p.get("author"),
+                "score": p.get("score", 0),
+                "posted_at": datetime.fromtimestamp(
+                    p.get("created_utc", 0), tz=timezone.utc
+                ).isoformat() if p.get("created_utc") else None,
+                "_post_id": p.get("id", ""),  # used for comment fetching, stripped before insert
+                "_post_score": p.get("score", 0),
+            })
 
-            after = data.get("data", {}).get("after")
-            if not after:
-                break
+        after = data.get("data", {}).get("after")
+        if not after:
+            break
 
-            await asyncio.sleep(REQUEST_DELAY)
+        await asyncio.sleep(REQUEST_DELAY)
 
     logger.info(f"Scraped {len(results)} posts from r/{subreddit}")
     return results
 
 
-async def fetch_comments_for_post(post_id: str, subreddit: str, client: httpx.AsyncClient, failures: list) -> list[dict]:
-    """Fetch top comments for a single Reddit post."""
+async def _fetch_comments_for_post(post_id: str, subreddit: str, client: httpx.AsyncClient, failures: list) -> list[dict]:
+    """Fetch top comments for a single Reddit post. Uses the provided client (with its cookies)."""
     url = f"{REDDIT_BASE}/r/{subreddit}/comments/{post_id}.json"
     params = {"limit": TOP_COMMENTS_PER_POST, "sort": "top", "depth": 1}
+
     try:
-        resp = await client.get(url, params=params, headers=HEADERS)
+        resp = await client.get(url, params=params)
         resp.raise_for_status()
         data = resp.json()
     except (httpx.HTTPError, ValueError) as e:
@@ -127,27 +127,32 @@ async def fetch_comments_for_post(post_id: str, subreddit: str, client: httpx.As
 
 
 async def scrape_subreddit_with_comments(subreddit: str) -> list[dict]:
-    """Scrape posts and fetch comments for high-score posts."""
-    posts = await scrape_subreddit(subreddit)
+    """Scrape posts and fetch comments using a single shared client session.
 
-    # Only fetch comments for posts that meet the score threshold
-    high_score_posts = [p for p in posts if p.get("_post_score", 0) >= MIN_POST_SCORE]
-    logger.info(f"r/{subreddit}: {len(posts)} posts, fetching comments for {len(high_score_posts)} high-score posts")
-
+    A single client carries cookies from the first request through all subsequent
+    requests, which prevents Reddit from flagging the session as a bot.
+    """
     all_items = []
     failures = []
 
+    # One shared client for the entire subreddit — cookies from page 1 carry through
+    # to page 2 and all comment fetches, making the session look like a real browser
     async with httpx.AsyncClient(timeout=30, headers=HEADERS) as client:
+        posts = await _scrape_subreddit_posts(subreddit, client)
+
+        high_score_posts = [p for p in posts if p.get("_post_score", 0) >= MIN_POST_SCORE]
+        logger.info(f"r/{subreddit}: {len(posts)} posts, fetching comments for {len(high_score_posts)} high-score posts")
+
         # Fetch comments first (before stripping internal fields)
         for post_data in high_score_posts:
             post_id = post_data.get("_post_id", "")
             if not post_id:
                 continue
-            comments = await fetch_comments_for_post(post_id, subreddit, client, failures)
+            comments = await _fetch_comments_for_post(post_id, subreddit, client, failures)
             all_items.extend(comments)
             await asyncio.sleep(REQUEST_DELAY)
 
-        # Now strip internal fields and add posts
+        # Strip internal fields and add posts
         for post in posts:
             post.pop("_post_id", None)
             post.pop("_post_score", None)
