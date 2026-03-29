@@ -470,8 +470,8 @@ async def run_live_appstore():
     print("\nLive App Store test...")
     from agents.scout.scrapers.appstore import scrape_app_reviews
 
-    # Jira app ID
-    reviews = await scrape_app_reviews("1453905325", max_pages=2)
+    # Jira Cloud app ID (Atlassian Pty Ltd)
+    reviews = await scrape_app_reviews("1006972087", max_pages=2)
 
     assert len(reviews) > 0, "Expected at least some 1-2★ reviews for Jira"
 
