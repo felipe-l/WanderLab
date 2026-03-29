@@ -11,7 +11,7 @@ from shared.config import settings
 logger = logging.getLogger(__name__)
 
 REDDIT_BASE = "https://www.reddit.com"
-REQUEST_DELAY = 2.0  # seconds between requests (Reddit rate limit)
+REQUEST_DELAY = 5.0  # seconds between requests (Reddit rate limit)
 TOP_COMMENTS_PER_POST = 5  # how many top-level comments to fetch per post
 MIN_POST_SCORE = 10  # only fetch comments for posts with this score or higher
 
@@ -77,7 +77,7 @@ async def scrape_subreddit(subreddit: str, limit: int = 100) -> list[dict]:
     return results
 
 
-async def fetch_comments_for_post(post_id: str, subreddit: str, client: httpx.AsyncClient) -> list[dict]:
+async def fetch_comments_for_post(post_id: str, subreddit: str, client: httpx.AsyncClient, failures: list) -> list[dict]:
     """Fetch top comments for a single Reddit post."""
     url = f"{REDDIT_BASE}/r/{subreddit}/comments/{post_id}.json"
     params = {"limit": TOP_COMMENTS_PER_POST, "sort": "top", "depth": 1}
@@ -92,6 +92,8 @@ async def fetch_comments_for_post(post_id: str, subreddit: str, client: httpx.As
         resp.raise_for_status()
         data = resp.json()
     except (httpx.HTTPError, ValueError) as e:
+        status = getattr(getattr(e, "response", None), "status_code", "network")
+        failures.append({"post_id": post_id, "subreddit": subreddit, "error": str(status)})
         logger.warning(f"Failed to fetch comments for post {post_id}: {e}")
         return []
 
@@ -138,13 +140,15 @@ async def scrape_subreddit_with_comments(subreddit: str) -> list[dict]:
     logger.info(f"r/{subreddit}: {len(posts)} posts, fetching comments for {len(high_score_posts)} high-score posts")
 
     all_items = []
+    failures = []
+
     async with httpx.AsyncClient(timeout=30) as client:
         # Fetch comments first (before stripping internal fields)
         for post_data in high_score_posts:
             post_id = post_data.get("_post_id", "")
             if not post_id:
                 continue
-            comments = await fetch_comments_for_post(post_id, subreddit, client)
+            comments = await fetch_comments_for_post(post_id, subreddit, client, failures)
             all_items.extend(comments)
             await asyncio.sleep(REQUEST_DELAY)
 
@@ -153,6 +157,17 @@ async def scrape_subreddit_with_comments(subreddit: str) -> list[dict]:
             post.pop("_post_id", None)
             post.pop("_post_score", None)
             all_items.append(post)
+
+    # Summary log so you can see at a glance if failures are worth investigating
+    if failures:
+        by_error = {}
+        for f in failures:
+            by_error.setdefault(f["error"], 0)
+            by_error[f["error"]] += 1
+        summary = ", ".join(f"{count}×{code}" for code, count in by_error.items())
+        logger.warning(f"r/{subreddit}: {len(failures)}/{len(high_score_posts)} comment fetches failed ({summary})")
+    else:
+        logger.info(f"r/{subreddit}: all {len(high_score_posts)} comment fetches succeeded")
 
     return all_items
 
