@@ -4,6 +4,7 @@ import json
 import logging
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 
 class JSONFormatter(logging.Formatter):
@@ -21,16 +22,29 @@ class JSONFormatter(logging.Formatter):
 
 
 def setup_logging(agent_name: str, level: int = logging.INFO):
-    """Configure structured JSON logging for an agent."""
+    """Configure structured JSON logging for an agent.
+
+    Logs to both stdout and logs/{agent_name}.log (appended, one JSON line per entry).
+    """
     root = logging.getLogger()
     root.setLevel(level)
 
     # Clear existing handlers
     root.handlers.clear()
 
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(JSONFormatter())
-    root.addHandler(handler)
+    formatter = JSONFormatter()
+
+    # stdout handler
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(formatter)
+    root.addHandler(stream_handler)
+
+    # file handler — writes to logs/ next to wherever the agent is run from
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
+    file_handler = logging.FileHandler(log_dir / f"{agent_name}.log", encoding="utf-8")
+    file_handler.setFormatter(formatter)
+    root.addHandler(file_handler)
 
     # Inject agent name into all log records
     old_factory = logging.getLogRecordFactory()
