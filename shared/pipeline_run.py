@@ -5,7 +5,7 @@ import traceback
 from datetime import date, timedelta
 
 from shared.discord_webhook import post_alert, post_log
-from shared.supabase_client import create_run, update_run_status
+from shared.supabase_client import create_run, get_latest_run_id, update_run_status
 
 logger = logging.getLogger(__name__)
 
@@ -33,15 +33,19 @@ class PipelineRunContext:
             ctx.set_count(42)  # sets scout_raw_count
     """
 
-    def __init__(self, agent_name: str, week_of: date | None = None):
+    def __init__(self, agent_name: str, week_of: date | None = None, run_id: str | None = None):
         self.agent_name = agent_name
         self.week_of = week_of or current_monday()
+        self._existing_run_id = run_id  # downstream agents pass this to reuse Scout's run
         self.run_id: str | None = None
         self._count: int | None = None
 
     async def __aenter__(self):
-        run = create_run(self.week_of)
-        self.run_id = run["id"]
+        if self._existing_run_id:
+            self.run_id = self._existing_run_id
+        else:
+            run = create_run(self.week_of)
+            self.run_id = run["id"]
         update_run_status(self.run_id, self.agent_name, "running")
         await post_log(f"Starting pipeline run for week of {self.week_of}")
         logger.info(f"Pipeline run {self.run_id} started for {self.agent_name}")
@@ -53,6 +57,7 @@ class PipelineRunContext:
             if self._count is not None:
                 count_key = {
                     "scout": "raw_count",
+                    "ranker": "cluster_count",
                     "filter": "scored_count",
                     "analyst": "brief_count",
                 }.get(self.agent_name)

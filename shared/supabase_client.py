@@ -129,6 +129,46 @@ def get_passing_complaints(run_id: str) -> list[dict]:
     return filtered.data or []
 
 
+# --- Pipeline Ranked ---
+
+def insert_ranked_clusters(run_id: str, records: list[dict]) -> int:
+    """Bulk insert ranked clusters from Ranker. Returns insert count."""
+    if not records:
+        return 0
+    for r in records:
+        r["run_id"] = run_id
+    result = supabase.table("pipeline_ranked").insert(records).execute()
+    count = len(result.data) if result.data else 0
+    logger.info(f"Inserted {count} ranked clusters")
+    return count
+
+
+def get_ranked_clusters(run_id: str, top_n: int = 10) -> list[dict]:
+    """Get top N non-weak-signal clusters for Analyst, ordered by composite score."""
+    result = (
+        supabase.table("pipeline_ranked")
+        .select("*")
+        .eq("run_id", run_id)
+        .eq("is_weak_signal", False)
+        .order("composite_score", desc=True)
+        .limit(top_n)
+        .execute()
+    )
+    return result.data or []
+
+
+def get_latest_run_id() -> str | None:
+    """Get the most recently created pipeline run ID."""
+    result = (
+        supabase.table("pipeline_runs")
+        .select("id")
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0]["id"] if result.data else None
+
+
 # --- Pipeline Opportunities ---
 
 def insert_opportunities(run_id: str, records: list[dict]) -> int:
