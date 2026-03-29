@@ -516,10 +516,12 @@ if __name__ == "__main__":
 
     if args.live:
         print("\nRunning live tests (real HTTP)...")
-        live_results = asyncio.run(asyncio.gather(
-            run_live_reddit(),
-            run_live_appstore(),
-        ))
+        async def run_live():
+            return await asyncio.gather(
+                run_live_reddit(),
+                run_live_appstore(),
+            )
+        live_results = asyncio.run(run_live())
         live_passed = sum(live_results)
         print(f"\n{live_passed}/{len(live_results)} live tests passed.")
         if live_passed < len(live_results):
