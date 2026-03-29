@@ -118,7 +118,7 @@ async def run():
             f"{c.get('product_name') or 'Unmet need'}: {c['problem_theme'][:40]} ({c['composite_score']:.2f})"
             for c in top_clusters
         )
-        logger.info(f"Top {TOP_N} clusters: {top_summary}")
+        logger.info(f"Top {PREVIEW_N} clusters: {top_summary}")
         await post_log(f"Top clusters identified:\n{top_summary}")
 
         count = insert_ranked_clusters(ctx.run_id, all_clusters)

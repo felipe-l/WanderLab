@@ -290,6 +290,37 @@ def test_out_of_bounds_raw_indices_ignored():
     return True
 
 
+def test_raw_ids_empty_when_no_ids():
+    """Complaints missing 'id' field produce empty raw_ids — caught before DB insert."""
+    complaints_no_ids = [
+        {"body": "complaint A"},  # no id field
+        {"body": "complaint B"},  # no id field
+        {"id": "uuid-003", "body": "complaint C"},  # has id
+    ]
+
+    raw_indices = [0, 1, 2]
+    raw_ids = [
+        str(complaints_no_ids[i]["id"])
+        for i in raw_indices
+        if i < len(complaints_no_ids) and complaints_no_ids[i].get("id")
+    ]
+
+    # Only uuid-003 has an id — the others are silently skipped
+    assert raw_ids == ["uuid-003"], f"Expected ['uuid-003'], got {raw_ids}"
+
+    # If ALL complaints are missing ids, raw_ids would be [] — a NOT NULL violation
+    # This surfaces the bug so it can be caught before Supabase rejects it
+    all_missing = [{"body": "x"}, {"body": "y"}]
+    raw_ids_empty = [
+        str(all_missing[i]["id"])
+        for i in [0, 1]
+        if i < len(all_missing) and all_missing[i].get("id")
+    ]
+    assert raw_ids_empty == [], "Complaints with no ids produce empty raw_ids list"
+    print("  ✓ raw_ids empty guard: missing id fields silently skipped (empty list detectable pre-insert)")
+    return True
+
+
 def test_cluster_type_values():
     """cluster_type must be one of the 3 values allowed by the DB constraint."""
     valid_types = {"product", "unmet_need", "weak_signal"}
@@ -417,6 +448,7 @@ if __name__ == "__main__":
         test_unmet_need_composite_score(),
         test_raw_ids_mapped_from_indices(),
         test_out_of_bounds_raw_indices_ignored(),
+        test_raw_ids_empty_when_no_ids(),
         test_cluster_type_values(),
     ]
 

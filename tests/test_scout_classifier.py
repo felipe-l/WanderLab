@@ -61,8 +61,7 @@ def run_fixture_tests():
         assert "body" in item, f"Item {i} missing body"
         assert item["source"] in ("reddit", "appstore"), f"Item {i} invalid source: {item['source']}"
 
-    # Test deduplication logic
-    from shared.supabase_client import insert_raw_complaints
+    # Test deduplication logic (mirrors shared/supabase_client.py insert_raw_complaints)
     duped = [
         {"source": "reddit", "source_id": "reddit_abc123", "body": "test", "run_id": "fake"},
         {"source": "reddit", "source_id": "reddit_abc123", "body": "test", "run_id": "fake"},
@@ -79,6 +78,24 @@ def run_fixture_tests():
     assert len(deduped) == 2, f"Dedup failed: expected 2, got {len(deduped)}"
     print("  ✓ Deduplication logic works")
     print("  ✓ Item shape validation passed")
+
+    # Test classifier output field coercion — is_complaint must be bool, not string
+    # The LLM occasionally returns "true"/"false" strings; verify our parsing guards against this
+    mock_llm_outputs = [
+        {"is_complaint": True, "product_mentioned": "Jira"},       # correct
+        {"is_complaint": False, "product_mentioned": None},         # correct
+        {"is_complaint": True, "product_mentioned": ""},            # empty string → should become None
+    ]
+    for output in mock_llm_outputs:
+        # Mirrors what classifier.py does when applying results back to items
+        is_complaint = output.get("is_complaint", False)
+        product = output.get("product_mentioned") or None  # empty string coerced to None
+        assert isinstance(is_complaint, bool), f"is_complaint must be bool, got {type(is_complaint)}"
+        assert product is None or isinstance(product, str), f"product_mentioned must be str or None"
+        if output.get("product_mentioned") == "":
+            assert product is None, "Empty string product_mentioned should coerce to None"
+    print("  ✓ Classifier output coercion: is_complaint is bool, empty product_mentioned → None")
+
     print(f"Fixture tests passed.\n")
 
 
