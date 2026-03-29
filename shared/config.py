@@ -42,8 +42,12 @@ class Settings:
     # OpenRouter — required by Scout, Filter, Analyst
     openrouter_api_key: str = field(default_factory=lambda: _optional("OPENROUTER_API_KEY"))
 
-    # Discord — Analyst only
+    # Discord — Analyst only (comma-separated for multiple webhooks)
     discord_webhook_opportunities: str = field(default_factory=lambda: _optional("DISCORD_WEBHOOK_OPPORTUNITIES"))
+
+    @property
+    def discord_webhook_opportunities_list(self) -> list[str]:
+        return [u.strip() for u in self.discord_webhook_opportunities.split(",") if u.strip()]
 
     # Scout config
     reddit_subreddits: str = field(default_factory=lambda: _optional("REDDIT_SUBREDDITS", "SaaS,startups,Entrepreneur,SmallBusiness,productivity,Notion,Adobe,Shopify,Slack,Jira,Figma,Lightroom,Asana,HubSpot,webdev,Freelance,SEO,marketing"))

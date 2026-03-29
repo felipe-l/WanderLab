@@ -39,11 +39,13 @@ async def post_alert(message: str):
 
 
 async def post_opportunity(embed: dict) -> str | None:
-    """Post a rich embed to #opportunities. Returns the Discord message ID."""
-    result = await _post_webhook(
-        settings.discord_webhook_opportunities,
-        {"embeds": [embed]},
-    )
-    if result:
-        return result.get("id")
-    return None
+    """Post a rich embed to all configured #opportunities webhooks. Returns the first message ID."""
+    first_id = None
+    for url in settings.discord_webhook_opportunities_list:
+        try:
+            result = await _post_webhook(url, {"embeds": [embed]})
+            if result and first_id is None:
+                first_id = result.get("id")
+        except Exception as e:
+            logger.error(f"Failed to post opportunity to webhook: {e}")
+    return first_id
