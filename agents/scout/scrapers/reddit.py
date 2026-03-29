@@ -15,21 +15,22 @@ REQUEST_DELAY = 5.0  # seconds between requests (Reddit rate limit)
 TOP_COMMENTS_PER_POST = 5  # how many top-level comments to fetch per post
 MIN_POST_SCORE = 10  # only fetch comments for posts with this score or higher
 
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/javascript, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
 
 async def scrape_subreddit(subreddit: str, limit: int = 100) -> list[dict]:
     """Scrape recent posts from a subreddit using the public JSON API."""
     url = f"{REDDIT_BASE}/r/{subreddit}/new.json"
     params = {"limit": min(limit, 100), "t": "week"}
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/javascript, */*",
-        "Accept-Language": "en-US,en;q=0.9",
-    }
 
     results = []
     after = None
 
-    async with httpx.AsyncClient(timeout=30, headers=headers) as client:
+    async with httpx.AsyncClient(timeout=30, headers=HEADERS) as client:
         for page in range(2):
             if after:
                 params["after"] = after
@@ -81,14 +82,8 @@ async def fetch_comments_for_post(post_id: str, subreddit: str, client: httpx.As
     """Fetch top comments for a single Reddit post."""
     url = f"{REDDIT_BASE}/r/{subreddit}/comments/{post_id}.json"
     params = {"limit": TOP_COMMENTS_PER_POST, "sort": "top", "depth": 1}
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/javascript, */*",
-        "Accept-Language": "en-US,en;q=0.9",
-    }
-
     try:
-        resp = await client.get(url, params=params, headers=headers)
+        resp = await client.get(url, params=params, headers=HEADERS)
         resp.raise_for_status()
         data = resp.json()
     except (httpx.HTTPError, ValueError) as e:
@@ -142,7 +137,7 @@ async def scrape_subreddit_with_comments(subreddit: str) -> list[dict]:
     all_items = []
     failures = []
 
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(timeout=30, headers=HEADERS) as client:
         # Fetch comments first (before stripping internal fields)
         for post_data in high_score_posts:
             post_id = post_data.get("_post_id", "")
