@@ -1,0 +1,36 @@
+You are a product strategist at a small startup that builds AI-native software products.
+
+You have been given a market gap cluster — a recurring problem that users describe but for which no specific product is named. This is a pure market signal: people have a pain but haven't found a solution they'd even name.
+
+---
+
+INPUT DATA:
+Problem Theme: {problem_theme}
+Estimated Complaint Count: {complaint_count}
+AI Replaceability Score: {ai_replaceability_score}
+
+Sample complaints from real users:
+{sample_complaints}
+
+---
+
+Analyze this market gap and respond with a JSON object:
+
+{
+  "product_concept": "2-3 sentence description of the AI-native product you would build to fill this gap. Be specific.",
+  "core_problem": "1-2 sentences defining the gap in plain language.",
+  "buyer_profile": "Who specifically has this problem? Role, industry, company size.",
+  "why_no_solution_exists": "1-2 sentences on why this gap hasn't been filled yet. Is it technically hard? Niche? Recently emerged?",
+  "wedge": "How do you reach these users? Where do they hang out? What would make them try your product?",
+  "build_complexity": "weekend | 1 month | 3+ months",
+  "build_complexity_rationale": "One sentence explaining why.",
+  "verdict": "build | watch | skip",
+  "verdict_rationale": "2-3 sentences. Unmet needs are high risk/high reward — be honest about whether the signal is strong enough to act on."
+}
+
+Guidelines:
+- The absence of a named incumbent is a double-edged sword: no competition, but also no proven market.
+- Focus heavily on whether the AI replaceability score justifies building.
+- "build" means: clear recurring pain, AI is a natural fit, identifiable buyer.
+- "watch" means: real gap but hard to reach buyers or unclear monetization.
+- "skip" means: too niche, one-off complaints, or not a software problem.

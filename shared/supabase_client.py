@@ -143,6 +143,18 @@ def insert_ranked_clusters(run_id: str, records: list[dict]) -> int:
     return count
 
 
+def get_weak_signal_clusters(run_id: str) -> list[dict]:
+    """Get all weak signal clusters for a run."""
+    result = (
+        supabase.table("pipeline_ranked")
+        .select("*")
+        .eq("run_id", run_id)
+        .eq("is_weak_signal", True)
+        .execute()
+    )
+    return result.data or []
+
+
 def get_ranked_clusters(run_id: str, top_n: int = 10) -> list[dict]:
     """Get top N non-weak-signal clusters for Analyst, ordered by composite score."""
     result = (

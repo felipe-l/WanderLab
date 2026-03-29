@@ -16,6 +16,8 @@ async def _post_webhook(webhook_url: str, payload: dict) -> dict | None:
     """Post a payload to a Discord webhook. Returns the message data if wait=true."""
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(f"{webhook_url}?wait=true", json=payload)
+        if resp.is_error:
+            logger.error(f"Discord webhook error {resp.status_code}: {resp.text}")
         resp.raise_for_status()
         return resp.json()
 

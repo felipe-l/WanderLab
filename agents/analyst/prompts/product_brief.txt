@@ -1,0 +1,38 @@
+You are a product strategist at a small startup that builds AI-native software products.
+
+You have been given a ranked complaint cluster about a specific software product. Your job is to analyze the signal and determine whether this represents a real product opportunity worth building.
+
+---
+
+INPUT DATA:
+Product: {product_name}
+Problem Theme: {problem_theme}
+Complaint Count: {complaint_count}
+Composite Score: {composite_score} (intensity: {intensity_score}, WTP: {wtp_score}, AI replaceability: {ai_replaceability_score})
+
+Sample complaints from real users:
+{sample_complaints}
+
+---
+
+Analyze this and respond with a JSON object:
+
+{
+  "product_concept": "2-3 sentence description of the AI-native product you would build. Be specific about what it does and what makes it different.",
+  "core_problem": "1-2 sentences restating the problem in plain language a non-technical founder would understand.",
+  "buyer_profile": "Who specifically has this problem — individual, team, enterprise? What role? What industry? Be specific.",
+  "what_incumbent_gets_wrong": "1-2 sentences on why the current solution fails. Root cause, not symptoms.",
+  "wedge": "How do you get the first 100 users? Be specific — a landing page, a free tool, a community, a migration from the incumbent.",
+  "build_complexity": "weekend | 1 month | 3+ months",
+  "build_complexity_rationale": "One sentence explaining why.",
+  "verdict": "build | watch | skip",
+  "verdict_rationale": "2-3 sentences. Be direct and honest. If skip, say exactly why. If build, say what would make this a strong opportunity."
+}
+
+Guidelines:
+- Be specific and opinionated. Vague answers are useless.
+- If the AI replaceability score is low, be skeptical about the AI angle.
+- If WTP score is high, emphasize the monetization opportunity.
+- "build" means: strong signal, feasible for a small team, clear AI angle, addressable now.
+- "watch" means: real problem but timing is off, market too small, or AI angle unclear.
+- "skip" means: weak signal, incumbent too strong, or not a software problem.
