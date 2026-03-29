@@ -148,9 +148,9 @@ async def scrape_subreddit_with_comments(subreddit: str) -> list[dict]:
             post_id = post_data.get("_post_id", "")
             if not post_id:
                 continue
+            await asyncio.sleep(REQUEST_DELAY)
             comments = await _fetch_comments_for_post(post_id, subreddit, client, failures)
             all_items.extend(comments)
-            await asyncio.sleep(REQUEST_DELAY)
 
         # Strip internal fields and add posts
         for post in posts:
