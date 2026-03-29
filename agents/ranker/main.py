@@ -21,7 +21,7 @@ from themer import identify_themes, synthesize_unmet_needs
 logger = setup_logging("ranker")
 
 MIN_COMPLAINTS = int(os.environ.get("RANKER_MIN_COMPLAINTS", "3"))
-PREVIEW_N = int(os.environ.get("RANKER_PREVIEW_N", "10"))  # how many clusters to show in Discord summary
+TOP_N = int(os.environ.get("RANKER_TOP_N", "10"))
 UNMET_NEEDS_THEMES = int(os.environ.get("RANKER_UNMET_NEEDS_THEMES", "5"))
 MAX_CONCURRENT = 5  # parallel Sonnet calls for theme identification
 
@@ -113,12 +113,12 @@ async def run():
         strong_clusters = [c for c in all_clusters if not c.get("is_weak_signal")]
         strong_clusters.sort(key=lambda x: x["composite_score"], reverse=True)
 
-        top_clusters = strong_clusters[:PREVIEW_N]
+        top_clusters = strong_clusters[:TOP_N]
         top_summary = ", ".join(
             f"{c.get('product_name') or 'Unmet need'}: {c['problem_theme'][:40]} ({c['composite_score']:.2f})"
             for c in top_clusters
         )
-        logger.info(f"Top {PREVIEW_N} clusters: {top_summary}")
+        logger.info(f"Top {TOP_N} clusters: {top_summary}")
         await post_log(f"Top clusters identified:\n{top_summary}")
 
         count = insert_ranked_clusters(ctx.run_id, all_clusters)
