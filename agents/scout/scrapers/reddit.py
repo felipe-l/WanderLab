@@ -10,7 +10,7 @@ from shared.config import settings
 
 logger = logging.getLogger(__name__)
 
-REDDIT_BASE = "https://www.reddit.com"
+REDDIT_BASE = "https://old.reddit.com"
 REQUEST_DELAY = 5.0  # seconds between requests (Reddit rate limit)
 TOP_COMMENTS_PER_POST = 5  # how many top-level comments to fetch per post
 MIN_POST_SCORE = 10  # only fetch comments for posts with this score or higher
