@@ -30,11 +30,18 @@ def _field(name: str, value: str | None, inline: bool = False) -> dict:
     return {"name": name, "value": _truncate(value), "inline": inline}
 
 
-def format_product_brief(brief: dict) -> dict:
-    """Format a product opportunity brief as a Discord embed."""
+def _format_products_mentioned(products_mentioned: dict) -> str | None:
+    """Format products_mentioned dict as a readable string."""
+    if not products_mentioned:
+        return None
+    return ", ".join(f"**{p}** ({n})" for p, n in sorted(products_mentioned.items(), key=lambda x: -x[1]))
+
+
+def format_brief(brief: dict) -> dict:
+    """Format an opportunity brief as a Discord embed."""
     verdict = brief.get("verdict", "skip").lower()
-    product = brief.get("product_name", "Unknown Product")
-    theme = brief.get("problem_theme", "")
+    theme = brief.get("problem_theme", "Unknown Theme")
+    products_str = _format_products_mentioned(brief.get("products_mentioned") or {})
 
     fields = [
         _field("Verdict", VERDICT_EMOJI.get(verdict, verdict.upper()), inline=True),
@@ -42,10 +49,13 @@ def format_product_brief(brief: dict) -> dict:
         _field("Build Complexity", brief.get("build_complexity", "Unknown"), inline=True),
         _field("Product Concept", brief.get("product_concept")),
         _field("Buyer", brief.get("buyer_profile")),
-        _field("What Incumbent Gets Wrong", brief.get("what_incumbent_gets_wrong")),
+        _field("Why Incumbents Fail", brief.get("why_incumbents_fail")),
         _field("Wedge", brief.get("wedge")),
         _field("Rationale", brief.get("verdict_rationale")),
     ]
+
+    if products_str:
+        fields.append(_field("Seen In", products_str))
 
     quotes = brief.get("sample_complaints", [])
     if quotes:
@@ -53,47 +63,8 @@ def format_product_brief(brief: dict) -> dict:
         fields.append(_field("User Voices", quote_text))
 
     return {
-        "title": _truncate(f"{product} — {theme}", TITLE_LIMIT),
+        "title": _truncate(theme, TITLE_LIMIT),
         "color": VERDICT_COLORS.get(verdict, 0x95A5A6),
         "fields": fields,
         "footer": {"text": "WanderLab Pipeline · Analyst"},
     }
-
-
-def format_unmet_need_brief(brief: dict) -> dict:
-    """Format an unmet need brief as a Discord embed."""
-    verdict = brief.get("verdict", "skip").lower()
-    theme = brief.get("problem_theme", "Unknown Gap")
-
-    fields = [
-        _field("Verdict", VERDICT_EMOJI.get(verdict, verdict.upper()), inline=True),
-        _field("Evidence", f"{brief.get('evidence_count', 0)} mentions · AI fit {brief.get('avg_composite_score', 0):.2f}", inline=True),
-        _field("Build Complexity", brief.get("build_complexity", "Unknown"), inline=True),
-        _field("Product Concept", brief.get("product_concept")),
-        _field("Buyer", brief.get("buyer_profile")),
-        _field("Why No Solution Exists", brief.get("why_no_solution_exists")),
-        _field("Wedge", brief.get("wedge")),
-        _field("Rationale", brief.get("verdict_rationale")),
-    ]
-
-    quotes = brief.get("sample_complaints", [])
-    if quotes:
-        quote_text = "\n".join(f'> "{q[:200]}"' for q in quotes[:2])
-        fields.append(_field("User Voices", quote_text))
-
-    return {
-        "title": _truncate(f"🔍 Market Gap — {theme}", TITLE_LIMIT),
-        "color": VERDICT_COLORS.get(verdict, 0x95A5A6),
-        "fields": fields,
-        "footer": {"text": "WanderLab Pipeline · Analyst"},
-    }
-
-
-def format_weak_signals(clusters: list[dict]) -> str:
-    """Format weak signal products as a simple Discord message."""
-    if not clusters:
-        return ""
-    lines = ["**Weak Signals** (1-2 complaints each — worth monitoring):"]
-    for c in clusters:
-        lines.append(f"• **{c.get('product_name', 'Unknown')}** — {c.get('problem_theme', '')[:100]}")
-    return "\n".join(lines)

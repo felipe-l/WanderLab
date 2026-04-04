@@ -9,18 +9,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from shared.config import settings
-from shared.discord_webhook import _post_webhook, post_log, post_opportunity
+from shared.discord_webhook import post_log, post_opportunity
 from shared.logging_setup import setup_logging
 from shared.pipeline_run import PipelineRunContext
 from shared.supabase_client import (
     get_latest_run_id,
     get_ranked_clusters,
-    get_weak_signal_clusters,
     insert_opportunities,
 )
 
-from briefer import generate_product_brief, generate_unmet_need_brief
-from formatter import format_product_brief, format_unmet_need_brief, format_weak_signals
+from briefer import generate_brief
+from formatter import format_brief
 
 logger = setup_logging("analyst")
 
@@ -37,9 +36,8 @@ async def run():
 
         # Load clusters
         clusters = get_ranked_clusters(run_id, top_n=TOP_N)
-        weak_signals = get_weak_signal_clusters(run_id)
 
-        logger.info(f"Loaded {len(clusters)} clusters, {len(weak_signals)} weak signals")
+        logger.info(f"Loaded {len(clusters)} clusters")
         await post_log(f"Generating briefs for {len(clusters)} clusters (top {TOP_N} by composite score)")
 
         if not clusters:
@@ -52,10 +50,7 @@ async def run():
 
         async def generate_with_semaphore(cluster):
             async with semaphore:
-                if cluster.get("cluster_type") == "unmet_need":
-                    return await generate_unmet_need_brief(cluster)
-                else:
-                    return await generate_product_brief(cluster)
+                return await generate_brief(cluster)
 
         tasks = [generate_with_semaphore(c) for c in clusters]
         briefs = await asyncio.gather(*tasks)
@@ -64,11 +59,12 @@ async def run():
         valid_briefs = [b for b in briefs if b is not None]
         logger.info(f"Generated {len(valid_briefs)}/{len(clusters)} briefs successfully")
 
-        # Attach sample complaints from cluster for Discord formatting
+        # Attach sample complaints and products from cluster for Discord formatting
         cluster_map = {str(c.get("id")): c for c in clusters}
         for brief in valid_briefs:
             cluster = cluster_map.get(brief.get("ranked_id"), {})
             brief["sample_complaints"] = cluster.get("sample_complaints", [])
+            brief["products_mentioned"] = cluster.get("products_mentioned") or {}
 
         # --- Write to Supabase FIRST before any Discord posts ---
         records = []
@@ -102,21 +98,10 @@ async def run():
 
         for brief in valid_briefs:
             try:
-                if brief.get("cluster_type") == "unmet_need":
-                    embed = format_unmet_need_brief(brief)
-                else:
-                    embed = format_product_brief(brief)
+                embed = format_brief(brief)
                 await post_opportunity(embed)
             except Exception as e:
-                logger.error(f"Failed to post brief for {brief.get('product_name')}: {e}")
-
-        # Post weak signals as plain text
-        if weak_signals:
-            try:
-                weak_summary = format_weak_signals(weak_signals)
-                await _post_webhook(settings.discord_webhook_opportunities, {"content": weak_summary[:2000]})
-            except Exception as e:
-                logger.error(f"Failed to post weak signals: {e}")
+                logger.error(f"Failed to post brief for '{brief.get('problem_theme', '')[:50]}': {e}")
 
         await post_log(f"Done — {count} briefs written to Supabase")
 

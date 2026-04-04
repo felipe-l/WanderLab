@@ -42,6 +42,9 @@ class Settings:
     # OpenRouter — required by Scout, Filter, Analyst
     openrouter_api_key: str = field(default_factory=lambda: _optional("OPENROUTER_API_KEY"))
 
+    # Gemini — required by Ranker (embeddings)
+    gemini_api_key: str = field(default_factory=lambda: _optional("GEMINI_API_KEY"))
+
     # Discord — Analyst only (comma-separated for multiple webhooks)
     discord_webhook_opportunities: str = field(default_factory=lambda: _optional("DISCORD_WEBHOOK_OPPORTUNITIES"))
 
