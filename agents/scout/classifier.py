@@ -38,7 +38,11 @@ async def _classify_single_batch(batch: list[dict], batch_index: int) -> list[di
 
     try:
         response = await call_llm_json(FLASH_LITE, SYSTEM_PROMPT, user_prompt)
-        return response.get("results", [])
+        results = response.get("results", [])
+        missing_index = [r for r in results if "index" not in r]
+        if missing_index:
+            logger.warning(f"Batch {batch_index}: {len(missing_index)} results missing 'index' field, skipping them. Raw: {missing_index}")
+        return results
     except Exception as e:
         logger.error(f"Classification batch {batch_index} failed: {e}")
         return []
@@ -66,7 +70,7 @@ async def classify_batch(items: list[dict]) -> list[dict]:
 
     # Map results back to items
     for batch_idx, (batch, results) in enumerate(zip(batches, all_results)):
-        result_map = {r["index"]: r for r in results}
+        result_map = {r["index"]: r for r in results if "index" in r}
         for idx, item in enumerate(batch):
             if idx in result_map:
                 item["is_complaint"] = result_map[idx].get("is_complaint", False)

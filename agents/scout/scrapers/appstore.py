@@ -15,10 +15,7 @@ REQUEST_DELAY = 1.5  # seconds between requests
 
 
 async def scrape_app_reviews(app_id: str, max_pages: int = 10) -> list[dict]:
-    """Scrape recent reviews for an App Store app via RSS JSON feed.
-
-    Focuses on 1-2 star reviews (complaints).
-    """
+    """Scrape recent reviews for an App Store app via RSS JSON feed."""
     results = []
 
     async with httpx.AsyncClient(timeout=30) as client:
@@ -43,8 +40,7 @@ async def scrape_app_reviews(app_id: str, max_pages: int = 10) -> list[dict]:
             for review in reviews:
                 rating = int(review.get("im:rating", {}).get("label", "5"))
 
-                # Only keep 1-2 star reviews (complaints)
-                if rating > 2:
+                if rating < settings.appstore_min_star_rating or rating > settings.appstore_max_star_rating:
                     continue
 
                 # Extract app name from feed metadata

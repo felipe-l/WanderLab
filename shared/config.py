@@ -56,6 +56,14 @@ class Settings:
     reddit_subreddits: str = field(default_factory=lambda: _optional("REDDIT_SUBREDDITS", "SaaS,startups,Entrepreneur,SmallBusiness,productivity,Notion,Adobe,Shopify,Slack,Jira,Figma,Lightroom,Asana,HubSpot,webdev,Freelance,SEO,marketing"))
     reddit_user_agent: str = field(default_factory=lambda: _optional("REDDIT_USER_AGENT", "WanderLab-Scout/1.0"))
     appstore_app_ids: str = field(default_factory=lambda: _optional("APPSTORE_APP_IDS", ""))
+    appstore_min_star_rating: int = field(default_factory=lambda: int(_optional("APPSTORE_MIN_STAR_RATING", "1")))
+    appstore_max_star_rating: int = field(default_factory=lambda: int(_optional("APPSTORE_MAX_STAR_RATING", "3")))
+
+    # Google Play config
+    googleplay_app_ids: str = field(default_factory=lambda: _optional("GOOGLEPLAY_APP_IDS", ""))
+    googleplay_min_star_rating: int = field(default_factory=lambda: int(_optional("GOOGLEPLAY_MIN_STAR_RATING", "1")))
+    googleplay_max_star_rating: int = field(default_factory=lambda: int(_optional("GOOGLEPLAY_MAX_STAR_RATING", "3")))
+    googleplay_max_reviews_per_star: int = field(default_factory=lambda: int(_optional("GOOGLEPLAY_MAX_REVIEWS_PER_STAR", "200")))
 
     # Filter config
     composite_threshold: float = field(default_factory=lambda: float(_optional("COMPOSITE_THRESHOLD", "0.55")))
@@ -71,6 +79,10 @@ class Settings:
     @property
     def appstore_id_list(self) -> list[str]:
         return [s.strip() for s in self.appstore_app_ids.split(",") if s.strip()]
+
+    @property
+    def googleplay_app_id_list(self) -> list[str]:
+        return [s.strip() for s in self.googleplay_app_ids.split(",") if s.strip()]
 
 
 # Singleton — fail fast on import if config is invalid

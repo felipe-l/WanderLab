@@ -15,6 +15,7 @@ from shared.supabase_client import insert_raw_complaints
 
 from scrapers.reddit import scrape_all_subreddits
 from scrapers.appstore import scrape_all_apps
+from scrapers.googleplay import scrape_all_apps as scrape_all_googleplay_apps
 from classifier import classify_batch
 
 logger = setup_logging("scout")
@@ -34,7 +35,17 @@ async def run():
         logger.info(f"App Store scraped: {len(appstore_reviews)} items")
         await post_log(f"App Store scraped: {len(appstore_reviews)} items")
 
-        all_items = reddit_posts + appstore_reviews
+        # --- Google Play ---
+        googleplay_reviews = []
+        if settings.googleplay_app_id_list:
+            logger.info("Starting Google Play scraping")
+            googleplay_reviews = await scrape_all_googleplay_apps()
+            logger.info(f"Google Play scraped: {len(googleplay_reviews)} items")
+            await post_log(f"Google Play scraped: {len(googleplay_reviews)} items")
+        else:
+            logger.info("Google Play scraping disabled (no GOOGLEPLAY_APP_IDS set)")
+
+        all_items = reddit_posts + appstore_reviews + googleplay_reviews
         logger.info(f"Total scraped: {len(all_items)} items")
 
         if not all_items:
